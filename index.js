@@ -1,3 +1,3 @@
-var sonumi    = require('./lib/sonumi');
+var app    = require('./lib/sonumi');
 
-new sonumi();
+app();
