@@ -28,7 +28,8 @@
     "ddp": "^0.11.0",
     "ddp-login": "^1.0.9",
     "sonumi-command-observer": "git+ssh://git@github.com/garethmidwood/sonumi-command-observer.git",
-    "sonumi-connector": "git+ssh://git@github.com/garethmidwood/sonumi-connector.git",
-    "sonumi-logger": "git+ssh://git@github.com/garethmidwood/sonumi-logger.git"
+    "sonumi-client": "git+ssh://git@github.com/garethmidwood/sonumi-client.git",
+    "sonumi-logger": "git+ssh://git@github.com/garethmidwood/sonumi-logger.git",
+    "sonumi-device-detector": "git+ssh://git@github.com/garethmidwood/sonumi-device-detector.git"
   }
 }
