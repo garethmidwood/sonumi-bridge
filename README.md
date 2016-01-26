@@ -1,15 +1,15 @@
-sonumi-client-core
+sonumi-bridge
 =========
 
-sonumi.com - master device core module
+sonumi.com - bridge device module
 
 ## Installation
 
-  npm install sonumi-client-core --save
+  npm install sonumi-bridge --save
 
 ## Usage
 
-  var sonumi = require('sonumi-client-core');
+  var sonumi = require('sonumi-bridge');
 
 ## Tests
 
