@@ -1,0 +1,8 @@
+{
+  "server": {
+    "host": "api.sonumi.com",
+    "port": "80",
+    "user": "pi@pi.pi",
+    "pass": "pipipi"
+  }
+}
