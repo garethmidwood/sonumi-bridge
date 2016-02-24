@@ -21,13 +21,18 @@
   "homepage": "https://github.com/garethmidwood/sonumi-bridge",
   "devDependencies": {
     "chai": "^3.4.1",
-    "mocha": "^2.3.4"
+    "chai-as-promised": "^5.2.0",
+    "mocha": "^2.3.4",
+    "rewire": "^2.5.1",
+    "sinon": "^1.17.3",
+    "socket.io-client": "^1.4.5"
   },
   "dependencies": {
     "config": "^1.17.1",
     "ddp": "^0.11.0",
     "ddp-login": "^1.0.9",
     "request": "^2.67.0",
+    "socket.io": "^1.4.5",
     "sonumi-client": "git+ssh://git@github.com/garethmidwood/sonumi-client.git",
     "sonumi-command-observer": "git+ssh://git@github.com/garethmidwood/sonumi-command-observer.git",
     "sonumi-device-detector": "git+ssh://git@github.com/garethmidwood/sonumi-device-detector.git",
