@@ -7,6 +7,8 @@ var chai = require('chai'),
     chaiAsPromised = require('chai-as-promised'),
     bridgeClient = rewire("../lib/client"),
     bridgeServer = rewire("../lib/server"),
+    deviceManager = require("../lib/device-manager"),
+    device = require("../lib/device"),
     ioClient = require('socket.io-client');
 
 chai.use(chaiAsPromised);
@@ -25,6 +27,9 @@ var configMock = {
 
 var loggerMock = sinon.stub();
 loggerMock.log = sinon.stub();
+//loggerMock.log = function(msg) {
+//    console.log(msg);
+//};
 loggerMock.error = sinon.stub();
 loggerMock.addLogFile = sinon.stub();
 
@@ -35,14 +40,13 @@ var sonumiCommObsMock = sinon.stub();
 
 var deviceManagerMock = sinon.stub();
 deviceManagerMock.devicesCount = 0;
-deviceManagerMock.removeDevices = function(socket) {
-    deviceManagerMock.devicesCount = 0;
-};
 deviceManagerMock.removeDevice = function(item) {
     deviceManagerMock.devicesCount--;
 };
 deviceManagerMock.addDevice = function(item) {
     deviceManagerMock.devicesCount++;
+
+    return { name: Math.random() };
 };
 
 bridgeServer.__set__({
@@ -56,9 +60,21 @@ bridgeClient.__set__({
     sonumiCommandObserver: sonumiCommObsMock
 });
 
-var activeBridgeServer = new bridgeServer({
+new bridgeServer({
     devicemanager: deviceManagerMock
 });
+
+var sampleActionsResponse = {
+    actions: [
+        'one',
+        'two',
+        'three'
+    ]
+};
+
+var mockSocket1 = { id: "device1", connected: true, on: sinon.stub().callsArgWith(1, sampleActionsResponse) };
+var mockSocket2 = { id: "device2", connected: true, on: sinon.stub().callsArgWith(1, sampleActionsResponse) };
+var mockSocket3 = { id: "device3", connected: true, on: sinon.stub().callsArgWith(1, sampleActionsResponse) };
 
 
 
@@ -78,6 +94,16 @@ describe("Bridge Client", function() {
             function() {
                 return new bridgeClient({
                     client: sinon.stub()
+                })
+            }
+        ).to.throw(Error);
+    });
+
+    it('should require an API client', function () {
+        expect(
+            function() {
+                return new bridgeClient({
+                    devicemanager: sinon.stub()
                 })
             }
         ).to.throw(Error);
@@ -176,15 +202,13 @@ describe("Bridge Server", function() {
 
 
 
-describe("Bridge Server client methods", function() {
+describe("Bridge Server - Device tracking", function() {
     var deviceClient;
 
     beforeEach(function(done) {
-        deviceClient = ioClient.connect('http://localhost:3100/devices');
+        deviceManagerMock.devicesCount = 0;
 
-        deviceClient.on('connect', function () {
-            done();
-        });
+        deviceClient = ioClient.connect('http://localhost:3100/devices');
 
         deviceClient.on('connect_error', function(err) {
             throw new Error('Could not connect to the server!');
@@ -193,70 +217,103 @@ describe("Bridge Server client methods", function() {
         deviceClient.on('error', function(err) {
             throw new Error('Oh fudge!');
         });
+
+        deviceClient.on('connect', function () {
+            done();
+        });
     });
 
     afterEach(function() {
         deviceClient.disconnect();
     });
 
-    it('should add new devices to the device manager', function (done) {
-        var initialDeviceCount = deviceManagerMock.devicesCount;
-
-        var deviceJson = JSON.stringify({"bar" : "baz"});
-
-        deviceClient.emit('new-device', deviceJson, function() {
-            assert((initialDeviceCount+1) == deviceManagerMock.devicesCount);
-            done();
-        });
+    it('should add newly connected sockets to the device manager', function () {
+        assert(1 == deviceManagerMock.devicesCount);
     });
 
-    it('should remove a device when it disconnects', function (done) {
-        var initialDeviceCount = deviceManagerMock.devicesCount;
-
-        var deviceJson = JSON.stringify({"bar" : "baz"});
-
-        deviceClient.emit('detach', deviceJson, function() {
-            assert((initialDeviceCount-1) == deviceManagerMock.devicesCount);
+    it('should remove the socket from the device manager when the client disconnects', function (done) {
+        deviceManagerMock.removeDevice = function() {
             done();
-        });
-    });
+        };
 
-    it('should not try to add invalid devices', function (done) {
-        var initialDeviceCount = deviceManagerMock.devicesCount;
-
-        var brokenDeviceJson = '[not: valid]';
-
-        deviceClient.emit('new-device', brokenDeviceJson, function(Error) {
-            assert(initialDeviceCount == deviceManagerMock.devicesCount);
-            done();
-        });
-    });
-
-    it('should not remove a device when the supplied device doesn\'t exist', function (done) {
-        var initialDeviceCount = deviceManagerMock.devicesCount;
-
-        var brokenDeviceJson = '[not: valid]';
-
-        deviceClient.emit('detach', brokenDeviceJson, function(Error) {
-            assert(initialDeviceCount == deviceManagerMock.devicesCount);
-            done();
-        });
-    });
-
-    it('should remove all devices when the client disconnects', function (done) {
-        deviceClient.on('disconnect', function(err) {
-            setTimeout(function() {
-                assert(0 == deviceManagerMock.devicesCount);
-                done();
-            }, 1000);
-        });
-
-        var deviceJson = JSON.stringify({"bar" : "baz"});
-
-        deviceClient.emit('new-device', deviceJson, function() {
-            deviceClient.disconnect();
-        });
+        deviceClient.disconnect();
     });
 });
 
+
+
+
+describe("Device Manager", function() {
+    var clientMock;
+
+    beforeEach(function() {
+        clientMock = sinon.stub();
+    });
+
+    it('should create a new device from a connected socket', function () {
+        var dependencies = { client: clientMock };
+
+        var devMan = new deviceManager(dependencies);
+
+        devMan.addDevice(mockSocket1);
+
+        assert(Object.keys(devMan.devices).length == 1, "Adding first device");
+
+        devMan.addDevice(mockSocket2);
+
+        assert(Object.keys(devMan.devices).length == 2, "Adding second device");
+
+        devMan.addDevice(mockSocket3);
+
+        assert(Object.keys(devMan.devices).length == 3, "Adding third device");
+    });
+
+    it('should remove devices', function () {
+        var dependencies = { client: clientMock };
+
+        var devMan = new deviceManager(dependencies);
+
+        var device = devMan.addDevice(mockSocket1);
+
+        assert(Object.keys(devMan.devices).length == 1, "added a device");
+
+        devMan.removeDevice(device);
+
+        assert(Object.keys(devMan.devices).length == 0, "removed the device");
+    });
+
+    it('should fail silently if an unregistered device is removed', function () {
+        var dependencies = { client: clientMock };
+
+        var devMan = new deviceManager(dependencies);
+
+        devMan.addDevice(mockSocket1);
+
+        assert(Object.keys(devMan.devices).length == 1, "added a device");
+
+        var mockDevice = sinon.stub();
+
+        devMan.removeDevice(mockDevice);
+
+        assert(Object.keys(devMan.devices).length == 1, "removed an unregistered device");
+    });
+});
+
+
+
+describe("Device", function() {
+    it('should be constructed with a connected socket', function () {
+        var socket = { id: "device1", connected: false };
+
+        expect(function() {
+            new device(socket);
+        }).to.throw('Device must be constructed with a connected socket');
+    });
+
+    it('should request actions from the connected socket', function () {
+        var device = new device(mockSocket1);
+
+
+    });
+});
 
