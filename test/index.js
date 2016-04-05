@@ -9,7 +9,8 @@ var chai = require('chai'),
     bridgeServer = rewire("../lib/server"),
     deviceManager = require("../lib/device-manager"),
     device = require("../lib/device"),
-    ioClient = require('socket.io-client');
+    ioClient = require('socket.io-client'),
+    EventEmitter = require('events').EventEmitter;
 
 chai.use(chaiAsPromised);
 
@@ -64,18 +65,33 @@ new bridgeServer({
     devicemanager: deviceManagerMock
 });
 
-var sampleActionsResponse = {
-    actions: [
-        'one',
-        'two',
-        'three'
+var sampleActionsResponse = JSON.stringify({
+    "id": "id",
+    "name": "Gareth",
+    "actions": [
+        { "path": "moo", "label": "make a moo" },
+        { "path": "baa", "label": "make a baa" }
     ]
+});
+
+var mockSocket1 = {
+    id: "device1",
+    connected: true,
+    on: sinon.stub(),
+    emit: sinon.stub()
 };
-
-var mockSocket1 = { id: "device1", connected: true, on: sinon.stub().callsArgWith(1, sampleActionsResponse) };
-var mockSocket2 = { id: "device2", connected: true, on: sinon.stub().callsArgWith(1, sampleActionsResponse) };
-var mockSocket3 = { id: "device3", connected: true, on: sinon.stub().callsArgWith(1, sampleActionsResponse) };
-
+var mockSocket2 = {
+    id: "device2",
+    connected: true,
+    on: sinon.stub(),
+    emit: sinon.stub()
+};
+var mockSocket3 = {
+    id: "device3",
+    connected: true,
+    on: sinon.stub(),
+    emit: sinon.stub()
+};
 
 
 
@@ -304,16 +320,43 @@ describe("Device Manager", function() {
 describe("Device", function() {
     it('should be constructed with a connected socket', function () {
         var socket = { id: "device1", connected: false };
+        var apiClient = sinon.stub();
 
         expect(function() {
-            new device(socket);
+            new device(apiClient, socket);
         }).to.throw('Device must be constructed with a connected socket');
     });
 
-    it('should request actions from the connected socket', function () {
-        var device = new device(mockSocket1);
+    it('should emit a "config" socket event to retrieve actions from the connected socket', function () {
+        var socket = {
+            id: "mocksocks",
+            connected: true,
+            on: sinon.stub(),
+            emit: sinon.spy()
+        };
+        var apiClient = sinon.stub();
 
+        new device(apiClient, socket);
 
+        assert(socket.emit.calledWith('config'));
+    });
+
+    it('should trigger actions on the socket', function () {
+        var socket = {
+            id: "mocksocks",
+            connected: true,
+            on: sinon.stub(),
+            emit: sinon.spy()
+        };
+        var apiClient = sinon.stub();
+
+        var theDevice = new device(apiClient, socket);
+
+        var myAction = 'awesomeaction';
+
+        theDevice.trigger(myAction);
+
+        assert(socket.emit.calledWith(myAction));
     });
 });
 
